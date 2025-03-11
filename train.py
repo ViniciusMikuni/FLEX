@@ -26,6 +26,7 @@ from diffusion_model import DiffusionModel
 from get_data import NSKT, E5, Simple
 from plotting import plot_samples
 from lion import Lion
+
 from diffusers.optimization import get_cosine_schedule_with_warmup as scheduler
 
 def ddp_setup(local_rank, world_size):
@@ -88,6 +89,7 @@ class Trainer:
         self.fine_tune = fine_tune
         if self.fine_tune:
             self.run_name += '_fine_tune'
+            # Can freeze some parameter based on the fine-tuning strategy
             # for param in self.model.module.encoder.parameters():
             #     param.requires_grad = False                
             # for param in self.model.module.decoder.parameters():
@@ -372,7 +374,10 @@ def load_train_objs(args):
     factor = 1
     if args.fine_tune:
         factor = 3.
-    optimizer = Lion(model.parameters(), lr=args.learning_rate/factor,betas=(args.lion_b1,args.lion_b2),weight_decay=0.0)
+    if args.optimizer == 'lion':
+        optimizer = Lion(model.parameters(), lr=args.learning_rate/factor,betas=(args.lion_b1,args.lion_b2),weight_decay=0.0)
+    else:
+        optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate/factor,weight_decay=0.0)
     return train_set,val_set, model, optimizer
 
 
@@ -444,6 +449,7 @@ if __name__ == "__main__":
     
 
     #Optimizer
+    parser.add_argument('--optimizer', default="lion", type=str, help='Optimizer to use: supported options are lion and adam')
     parser.add_argument('--learning-rate', default=1e-5, type=float, help='learning rate')
     parser.add_argument('--lion-b1', default=0.90, type=float, help='Lion optimizer beta1')
     parser.add_argument('--lion-b2', default=0.98, type=float, help='Lion optimizer beta1')
@@ -470,8 +476,8 @@ if __name__ == "__main__":
             return int(os.environ['RANK']) == 0
         
         if is_master_node():
-            mode = "disabled"
-            #mode = None
+            #mode = "disabled"
+            mode = None
             wandb.login()
         else:
             mode = "disabled"
@@ -499,12 +505,13 @@ if __name__ == "__main__":
             # Set the project where this run will be logged
             project="DiffusionSR",
             name=args.run_name,
+            mode = 'disabled',
             # Track hyperparameters and run metadata
             config={
                 "learning_rate": args.learning_rate,
                 "epochs": args.epochs,
                 "batch size": args.batch_size,
-                "upsampling factor": args.factor,
+                "upsampling factor": args.superres_factor,
             },
         )
 

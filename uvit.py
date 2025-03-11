@@ -168,11 +168,11 @@ class Encoder(nn.Module):
 
     This model uses a U-shaped architecture with skip connections between the encoder and decoder blocks.
     """
-    def __init__(self, img_size=224, 
+    def __init__(self,
+                 img_size=224, 
                  patch_size=16, 
                  in_chans=3,
                  in_conds=2,
-                 one_hot_cond = False,
                  use_time = True,
                  embed_dim=768,                 
                  depth=12,
@@ -182,19 +182,12 @@ class Encoder(nn.Module):
                  mlp_drop=0.0, 
                  norm_layer=nn.LayerNorm,
                  mlp_time_embed=False, 
-                 num_classes=-1,
                  use_checkpoint=False, 
                  conv=True,):
         super().__init__()
         self.num_features = self.embed_dim = embed_dim
-        self.num_classes = num_classes
         self.in_chans = in_chans
-        # self.ff = Base2FourierFeatures()
-        # num_freq = 2
-        # self.in_chans += 2*self.in_chans*num_freq
-
         self.in_conds = in_conds
-        self.one_hot_cond = one_hot_cond
         self.use_time = use_time
         self.embed_dim = embed_dim
         self.extras = 1
@@ -217,10 +210,9 @@ class Encoder(nn.Module):
                 
         if self.in_conds > 0:
             self.cond_embed  = nn.Sequential(
-                nn.Embedding(self.in_conds, embed_dim) if one_hot_cond else nn.Linear(self.in_conds, embed_dim),
-                nn.Linear(embed_dim, embed_dim * 2),
-                nn.GELU(),
-                nn.Linear(embed_dim * 2, embed_dim),
+                nn.Linear(self.in_conds, 2*self.embed_dim),
+                nn.SiLU(),
+                nn.Linear(self.embed_dim * 2, self.embed_dim),
             )
 
         # Positional embeddings for patches and extra tokens
@@ -241,8 +233,6 @@ class Encoder(nn.Module):
 
 
         self.drop = NoScaleDropout(0.1)
-
-
         self.initialize_weights()
         
 
@@ -251,7 +241,6 @@ class Encoder(nn.Module):
             # Initialize weights
             if isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight)
-                #nn.init.trunc_normal_(m.weight, mean=0.0, std=0.02, a=-2.0, b=2.0)
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.LayerNorm):
@@ -270,8 +259,7 @@ class Encoder(nn.Module):
         return {'pos_embed'}
 
     def forward(self, x, timesteps= None,
-                fluid_condition=None,
-                y=None):
+                fluid_condition=None,cond_skips=None):
         
         """
         Forward pass of the UViT model.
@@ -284,17 +272,15 @@ class Encoder(nn.Module):
 
         
         skips = []
-        # x = self.ff(x)
         x = self.patch_embed(x)  # Shape: [B, N_patches, embed_dim]
         B, L, D = x.shape
 
         if fluid_condition is not None:
             # Add label embedding if labels are provided
-            cond = self.drop(self.cond_embed(fluid_condition.to(torch.int) if self.one_hot_cond else fluid_condition))
+            cond = self.cond_embed(fluid_condition)
 
         if self.use_time:
             # Create time token
-            #time_token = self.time_embed(timestep_embedding(timesteps, self.embed_dim))
             time_token = self.time_embed(self.MPFourier(timesteps))
             cond += time_token
             
@@ -324,7 +310,6 @@ class Decoder(nn.Module):
                  patch_size=16, 
                  out_chans=3,
                  in_conds = 1,
-                 one_hot_cond = False,                 
                  embed_dim=768, 
                  depth=12,
                  num_heads=12, 
@@ -333,34 +318,29 @@ class Decoder(nn.Module):
                  mlp_drop=0.0, 
                  norm_layer=nn.LayerNorm,
                  mlp_time_embed=False, 
-                 num_classes=-1,
                  use_checkpoint=False, 
                  conv=True, 
                  skip=True):
         super().__init__()
         self.num_features = self.embed_dim = embed_dim
-        self.num_classes = num_classes
         self.embed_dim = embed_dim
-        self.out_chans = out_chans  # Number of output channels
+        self.out_chans = out_chans  
         self.in_conds = in_conds
-        self.one_hot_cond = one_hot_cond
         self.extras = 1
         self.MPFourier = MPFourier(embed_dim)
         
         self.time_embed = nn.Sequential(
-            nn.Linear(embed_dim, embed_dim * 2),
-            nn.GELU(),
-            nn.Linear(embed_dim * 2, embed_dim),
-        ) if mlp_time_embed else nn.Identity()
+            nn.Linear(self.embed_dim, self.embed_dim * 2),
+            nn.SiLU(),
+            nn.Linear(self.embed_dim * 2, self.embed_dim),
+        ) 
 
         if self.in_conds > 0:
             self.cond_embed  = nn.Sequential(
-                nn.Embedding(self.in_conds, embed_dim) if one_hot_cond else nn.Linear(self.in_conds, embed_dim),
-                nn.Linear(embed_dim, embed_dim * 2),
-                nn.GELU(),
-                nn.Linear(embed_dim * 2, embed_dim),
+                nn.Linear(self.in_conds, 2*self.embed_dim),
+                nn.SiLU(),
+                nn.Linear(self.embed_dim * 2, self.embed_dim),
             )
-
         
         # Decoder blocks (second half of the U-Net), with optional skip connections
         self.out_blocks = nn.ModuleList([
@@ -379,7 +359,9 @@ class Decoder(nn.Module):
         # Final convolutional layer
         if conv:
             self.final_layer = nn.Conv2d(
-                in_channels=self.out_chans, out_channels=self.out_chans, kernel_size=3, padding=1)
+                in_channels=self.out_chans,
+                out_channels=self.out_chans,
+                kernel_size=3, padding=1)
         else:
             self.final_layer = nn.Identity()
 
@@ -393,7 +375,6 @@ class Decoder(nn.Module):
             # Initialize weights
             if isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight)
-                #nn.init.trunc_normal_(m.weight, mean=0.0, std=0.02, a=-2.0, b=2.0)
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.LayerNorm):
@@ -422,14 +403,12 @@ class Decoder(nn.Module):
         """
 
         # Create time token
-        #time_token = self.time_embed(timestep_embedding(timesteps, self.embed_dim))
+
         time_token = self.time_embed(self.MPFourier(timesteps))
 
         if fluid_condition is not None:
-            # Add label embedding if labels are provided
-            fluid_emb = self.cond_embed(fluid_condition.to(torch.int) if self.one_hot_cond else fluid_condition)
+            fluid_emb = self.cond_embed(fluid_condition)
             time_token += self.drop(fluid_emb)
-
 
         #Combine middle channel
         x = x + cond
@@ -445,9 +424,6 @@ class Decoder(nn.Module):
         x = x[:, self.extras:, :]
         
         x = self.decoder_pred(x)  # Shape: [B, N_patches + extras, patch_dim]
-
-        # Remove extra tokens
-        #assert x.size(1) == self.extras + L, "Mismatch in sequence length after decoder_pred"
         
         # Reconstruct images from patches
         x = unpatchify(x, self.out_chans)  # Shape: [B, C_out, H, W]
@@ -460,8 +436,6 @@ class Decoder(nn.Module):
 def UViT(image_size=256,
          in_channels=1,
          out_channels=1,
-         max_factor=8,
-         max_steps=3,
          model_size = 'small',
          mlp_ratio=4,
          attn_drop=0.1,
@@ -471,6 +445,7 @@ def UViT(image_size=256,
          use_checkpoint=False,
          conv=True,
          skip=True,
+         cond_snapshots = 2,
          ):
 
     if model_size == 'small':
@@ -514,10 +489,9 @@ def UViT(image_size=256,
     forecast_encoder =  Encoder(
         img_size=image_size,
         patch_size=patch_size,
-        in_chans=in_channels,
-        in_conds = max_steps +1,
+        in_chans=cond_snapshots,
+        in_conds = 1,
         use_time = False,
-        one_hot_cond = True,
         embed_dim=embed_dim,  
         depth=depth,       
         num_heads=num_heads,    
@@ -534,9 +508,8 @@ def UViT(image_size=256,
         img_size=image_size,
         patch_size=patch_size,
         in_chans=in_channels,
-        in_conds = max_factor +1,
+        in_conds = 1,
         use_time = False,
-        one_hot_cond = True,
         embed_dim=embed_dim,  
         depth=depth,       
         num_heads=num_heads,    
@@ -573,36 +546,3 @@ def UViT(image_size=256,
     return base_encoder, superres_encoder, forecast_encoder, base_decoder
 
 
-if __name__ == "__main__":
-    
-    # Create a UViT model with specified parameters
-    model = UViT(
-        img_size=256,
-        patch_size=16,
-        in_chans=1,
-        out_chans=1,
-        embed_dim=128,  # Adjusted for testing purposes
-        depth=4,        # Adjusted for testing purposes
-        num_heads=4,    # Adjusted for testing purposes
-        mlp_ratio=2.,
-        attn_drop=0.1,
-        mlp_drop=0.1,
-        norm_layer=nn.LayerNorm,
-        mlp_time_embed=True,
-        use_checkpoint=False,
-        conv=True,
-        skip=True
-    )
-
-    # Create a batch of input images of shape [10, 2, 256, 256]
-    x = torch.randn(10, 2, 256, 256)
-
-    # Create a tensor of timesteps
-    timesteps = torch.randint(0, 1000, (10,))
-
-    # Forward pass
-    output = model(x, timesteps)
-
-    # Check the output shape
-    assert output.shape == (10, 1, 256, 256), f"Expected output shape {(10, 1, 256, 256)}, got {output.shape}"
-    print("Test passed. Output shape:", output.shape)

@@ -524,7 +524,6 @@ class Encoder(nn.Module):
             self,
             in_channels,
             in_conds,
-            one_hot_cond,
             use_time,
             model_channels,
             num_res_blocks,
@@ -548,12 +547,8 @@ class Encoder(nn.Module):
             num_heads_upsample = num_heads
                 
         self.in_channels = in_channels
-        # self.ff = Base2FourierFeatures()
-        # num_freq = 2
-        # self.in_channels += 2*self.in_channels*num_freq
 
         self.in_conds = in_conds
-        self.one_hot_cond = one_hot_cond
         self.use_time = use_time
         self.model_channels = model_channels
         self.num_res_blocks = num_res_blocks
@@ -567,7 +562,7 @@ class Encoder(nn.Module):
         self.num_heads_upsample = num_heads_upsample
 
         
-        time_embed_dim = model_channels * 4 
+        time_embed_dim = model_channels * 2
         
         if self.use_time:
             self.time_embed = nn.Sequential(
@@ -578,10 +573,9 @@ class Encoder(nn.Module):
         
         if self.in_conds > 0:
             self.cond_embed  = nn.Sequential(
-                nn.Embedding(self.in_conds, time_embed_dim) if one_hot_cond else nn.Linear(self.in_conds, time_embed_dim),
-                nn.Linear(time_embed_dim, time_embed_dim * 2),
+                nn.Linear(self.in_conds, time_embed_dim),
                 nn.SiLU(),
-                nn.Linear(time_embed_dim * 2, time_embed_dim),
+                nn.Linear(time_embed_dim, time_embed_dim),
             )
             
         ch = input_ch = int(channel_mult[0] * model_channels)            
@@ -667,7 +661,8 @@ class Encoder(nn.Module):
         self.emb = MPFourier(self.model_channels)
         self.drop = NoScaleDropout(0.1)
 
-    def forward(self, x, timesteps=None, fluid_condition=None):
+    def forward(self, x, timesteps=None,
+                fluid_condition=None,cond_skips = None):
         """
         Apply the model to an input batch.
 
@@ -676,19 +671,16 @@ class Encoder(nn.Module):
         :param y: an [N] Tensor of labels, if class-conditional.
         :return: an [N x C x ...] Tensor of outputs.
         """
-        
+
 
         if fluid_condition is not None:
             # Add embedding if conditions are provided
-            fluid_emb = self.cond_embed(fluid_condition.to(th.int) if self.one_hot_cond else fluid_condition)
-            emb = self.drop(fluid_emb)
-
+            emb = self.cond_embed(fluid_condition)
         if self.use_time:
-            emb = emb + self.time_embed(self.emb(timesteps))
-
+            emb += self.time_embed(self.emb(timesteps))
+            
 
         hs = []
-        # x = self.ff(x)
         for module in self.input_blocks:
             x = module(x, emb)
             hs.append(x)
@@ -703,7 +695,6 @@ class Decoder(nn.Module):
             model_channels,
             out_channels,
             in_conds,
-            one_hot_cond,
             num_res_blocks,
             attention_resolutions,
             dropout=0,
@@ -727,7 +718,7 @@ class Decoder(nn.Module):
         self.model_channels = model_channels
         self.out_channels = out_channels
         self.in_conds = in_conds
-        self.one_hot_cond = one_hot_cond
+
 
         self.num_res_blocks = num_res_blocks
         self.attention_resolutions = attention_resolutions
@@ -738,7 +729,7 @@ class Decoder(nn.Module):
         self.num_heads = num_heads
         self.num_head_channels = num_head_channels
         self.num_heads_upsample = num_heads_upsample
-        time_embed_dim = model_channels * 4 
+        time_embed_dim = model_channels * 2
         
                 
         self.time_embed = nn.Sequential(
@@ -749,10 +740,9 @@ class Decoder(nn.Module):
 
         if self.in_conds > 0:
             self.cond_embed  = nn.Sequential(
-                nn.Embedding(self.in_conds, time_embed_dim) if one_hot_cond else nn.Linear(self.in_conds, time_embed_dim),
-                nn.Linear(time_embed_dim, time_embed_dim * 2),
+                nn.Linear(self.in_conds, time_embed_dim),
                 nn.SiLU(),
-                nn.Linear(time_embed_dim* 2, time_embed_dim),
+                nn.Linear(time_embed_dim, time_embed_dim),
             )
 
             
@@ -835,13 +825,12 @@ class Decoder(nn.Module):
         :return: an [N x C x ...] Tensor of outputs.
         """
 
-        #emb = self.time_embed(timestep_embedding(timesteps, self.model_channels))
         emb = self.time_embed(self.emb(timesteps))
 
         if fluid_condition is not None:
             # Add embedding if conditions are provided
-            fluid_emb = self.cond_embed(fluid_condition.to(th.int) if self.one_hot_cond else fluid_condition)
-            emb += self.drop(fluid_emb)
+            fluid_emb = self.cond_embed(fluid_condition)
+            emb += fluid_emb
 
 
         h = x + cond
@@ -857,9 +846,8 @@ class Decoder(nn.Module):
 def UNet(image_size,
          in_channels=1,
          out_channels=1,
-         max_factor=8,
-         max_steps=3,
-         model_size = 'small',         
+         model_size = 'small',
+         cond_snapshots = 2,
          ):
 
 
@@ -890,7 +878,6 @@ def UNet(image_size,
     base_encoder = Encoder(
         in_channels=in_channels,
         in_conds = 1,
-        one_hot_cond = False,
         use_time = True,
         model_channels=base_width,
         num_res_blocks=num_res_blocks,
@@ -908,9 +895,8 @@ def UNet(image_size,
     )
 
     forecast_encoder = Encoder(
-        in_channels=in_channels,
-        in_conds = max_steps +1,
-        one_hot_cond = True,
+        in_channels=cond_snapshots,
+        in_conds = 1,
         use_time = False,
         model_channels=base_width,
         num_res_blocks=num_res_blocks,
@@ -930,8 +916,7 @@ def UNet(image_size,
 
     lowres_encoder = Encoder(
         in_channels=in_channels,
-        in_conds = max_factor +1,
-        one_hot_cond = True,
+        in_conds = 1,
         use_time = False,
         model_channels=base_width,
         num_res_blocks=num_res_blocks,
@@ -954,7 +939,6 @@ def UNet(image_size,
         model_channels=base_width,
         out_channels=out_channels,
         in_conds = 1,
-        one_hot_cond = False,
         num_res_blocks=num_res_blocks,
         attention_resolutions=tuple(attention_ds),
         dropout=0.1,

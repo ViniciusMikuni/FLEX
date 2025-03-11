@@ -424,10 +424,6 @@ class Encoder(nn.Module):
         super().__init__()
 
         self.in_chans = in_chans
-        # self.ff = Base2FourierFeatures()
-        # num_freq = 2
-        # self.in_chans += 2*self.in_chans*num_freq
-
         self.in_conds = in_conds
         self.use_time = use_time
         self.use_transf = use_transf
@@ -733,7 +729,7 @@ class Decoder(nn.Module):
         :return: Output images of shape [B, C_out, H, W]
         """
 
-        #time_token = self.time_embed(timestep_embedding(timesteps, self.embed_dim))
+
         time_token = self.time_embed(self.MPFourier(timesteps))
         if fluid_condition is not None:
             fluid_emb = self.cond_embed(fluid_condition)
@@ -885,36 +881,4 @@ def UViTHybrid(image_size=256,
 
 
     return base_encoder, superres_encoder, forecast_encoder, base_decoder
-
-
-if __name__ == "__main__":
-    
-    # Create a UViT model with specified parameters
-    model = UViT(
-        img_size=256,
-        in_chans=1,
-        out_chans=1,
-        depth=4,        # Adjusted for testing purposes
-        num_heads=4,    # Adjusted for testing purposes
-        mlp_ratio=2.,
-        attn_drop=0.1,
-        mlp_drop=0.1,
-        norm_layer=nn.LayerNorm,
-        use_checkpoint=False,
-        conv=True,
-        skip=True
-    )
-
-    # Create a batch of input images of shape [10, 2, 256, 256]
-    x = torch.randn(10, 2, 256, 256)
-
-    # Create a tensor of timesteps
-    timesteps = torch.randint(0, 1000, (10,))
-
-    # Forward pass
-    output = model(x, timesteps)
-
-    # Check the output shape
-    assert output.shape == (10, 1, 256, 256), f"Expected output shape {(10, 1, 256, 256)}, got {output.shape}"
-    print("Test passed. Output shape:", output.shape)
 

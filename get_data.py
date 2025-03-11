@@ -153,7 +153,7 @@ class DataLoader(torch.utils.data.Dataset, ABC):
 
 
     def __len__(self):
-
+        #return 100
         return (self.data_shape[0] - self.num_pred_steps - self.cond_snapshots)*self.oversampling +1
 
     def undo_norm(self,x):

@@ -270,7 +270,7 @@ if __name__ == "__main__":
     parser.add_argument('--superres', action='store_true', default=False, help='Superresolution')
 
     parser.add_argument('--logsnr_shift', default=1., type=float, help='Shift logsnr value')
-    parser.add_argument('--Reynolds-number', default=16000, type=int, help='Reynolds number')
+    parser.add_argument('--Reynolds-number', default=0, type=int, help='Reynolds number')
     parser.add_argument('--factor', default=8, type=int, help='upsampling factor')
     parser.add_argument('--step', default=1, type=int, help='future time steps to predict')
     parser.add_argument('--cond_snapshots', default=2, type=int, help='Previous snapshots to condition for forecast')

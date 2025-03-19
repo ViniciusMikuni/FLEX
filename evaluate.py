@@ -35,11 +35,14 @@ from get_data import E5_eval,NSKT_eval, Simple_eval
 def make_gif(PATH,args):
     targets = []
     forecasts = []
+    errors = []
     for i in range(args.horizon-1):
         targets.append(Image.open(PATH + "/ddpm_forecast_target_"+ str(i) + ".png"))
         os.remove(PATH + "/ddpm_forecast_target_"+ str(i) + ".png")
         forecasts.append(Image.open(PATH + "/ddpm_forecast_pred_"+ str(i) + ".png"))
         os.remove(PATH + "/ddpm_forecast_pred_"+ str(i) + ".png")
+        errors.append(Image.open(PATH + "/ddpm_forecast_error_"+ str(i) + ".png"))
+        os.remove(PATH + "/ddpm_forecast_error_"+ str(i) + ".png")
 
     targets[0].save(PATH + f"/target_{args.step}_{args.horizon}.gif",
                     format='GIF',
@@ -53,13 +56,20 @@ def make_gif(PATH,args):
                       save_all=True,
                       duration=500, loop=0)
     
+    errors[0].save(PATH + f"/error_{args.step}_{args.horizon}.gif",
+                      format='GIF',
+                      append_images=errors[1:],
+                      save_all=True,
+                      duration=500, loop=0)
+    
                 
 
 def generate_samples(model,ema,dataset,undo_norm,args):
     PATH = "./train_samples_" + args.run_name
     if not os.path.exists(PATH):
         os.makedirs(PATH)
-
+    if not os.path.exists(PATH+"_std"):
+        os.makedirs(PATH+"_std")
     RFNE_error = []
     R2s = []
     i=0
@@ -85,8 +95,9 @@ def generate_samples(model,ema,dataset,undo_norm,args):
                                                   superres=args.superres)
 
                         predictions.append(prediction)
-                    
-                    predictions = undo_norm(torch.mean(torch.stack(predictions),0))
+
+                    std = torch.std(undo_norm(torch.stack(predictions)),0)
+                    predictions = torch.mean(undo_norm(torch.stack(predictions)),0)
                     targets = undo_norm(targets)
                     error = torch.linalg.norm(predictions[:,0] - targets[:,0])/torch.linalg.norm(targets[:,0])
                     RFNE_error.append(error.cpu().detach().numpy())
@@ -95,10 +106,12 @@ def generate_samples(model,ema,dataset,undo_norm,args):
                         #Make some plots
                         PATH = "./train_samples_" + args.run_name
                         plot_samples(predictions, cond, targets, PATH, 0)
+                        plot_samples(std, cond, targets, PATH+"_std", 0)
                         samples = {
                             'conditioning_snapshots': cond.cpu().detach().numpy(),
                             'targets': targets.cpu().detach().numpy(),
-                            'predictions': predictions.cpu().detach().numpy()
+                            'predictions': predictions.cpu().detach().numpy(),
+                            'error': std.cpu().detach().numpy()
                         }
 
                         if not os.path.exists("./samples"):
@@ -111,7 +124,7 @@ def generate_samples(model,ema,dataset,undo_norm,args):
 
                 else:
                     forecast = []
-
+                    stds = []
                     for _ in range(len(targets)):
                         predictions = []
                         for _ in range(args.ensemb_size):                            
@@ -120,11 +133,14 @@ def generate_samples(model,ema,dataset,undo_norm,args):
                                                       cond, fluid_condition,'cuda',superres=args.superres)
 
                             predictions.append(prediction)
-                            
+
+                        std = torch.std(undo_norm(torch.stack(predictions)),0)
                         predictions = torch.mean(torch.stack(predictions),0)
 
                         cond = torch.cat([cond,predictions],1)[:,1:]
                         forecast.append(undo_norm(predictions).cpu().numpy())
+                        stds.append(std.cpu().numpy())
+                        
                     for j in range(predictions.shape[0]):
                         RFNE_error_at_time_p = []
                         cc_error_at_time_p = []
@@ -151,6 +167,11 @@ def generate_samples(model,ema,dataset,undo_norm,args):
                             plt.imshow(targets[im].cpu().detach().numpy()[0,0], cmap=cmocean.cm.balance)
                             plt.tight_layout()
                             plt.savefig(PATH + "/ddpm_forecast_target_"+ str(im) + ".png")
+                            plt.close()
+                            fig = plt.figure(figsize=(12, 8))
+                            plt.imshow(stds[im][0,0], cmap=cmocean.cm.balance)
+                            plt.tight_layout()
+                            plt.savefig(PATH + "/ddpm_forecast_error_"+ str(im) + ".png")
                             plt.close()
                                                 
                 i+=1

@@ -267,8 +267,8 @@ class EvalLoader(torch.utils.data.Dataset, ABC):
                  Reynolds_number = 16000,
                  scratch_dir='./',
                  superres = False,
-                 shift_factor = 600, #Skip initial snapshot for forecasting
-                 skip_factor = 12,  #Avoid overlaping
+                 shift_factor = 1, #Skip initial snapshot for forecasting
+                 skip_factor = 8,  #Avoid overlaping
                  cond_snapshots = 2,
                  ):
 
@@ -391,7 +391,7 @@ class NSKT_eval(EvalLoader):
 
     
     def open_hdf5(self):
-        return h5py.File(self.file, 'r')['v'] # w
+        return h5py.File(self.file, 'r')['w']
 
     def get_norm(self):
         return  0.0, 5.4574137 

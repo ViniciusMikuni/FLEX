@@ -21,6 +21,7 @@ from torch.optim import lr_scheduler
 
 from src.backbones.unet import UNet
 from src.backbones.uhybrid import UViTHybrid
+from src.backbones.uhybrid_moe import UViTHybridMoE
 from src.backbones.uvit import UViT
 from src.diffusion_model import DiffusionModel
 from src.utils.get_data import NSKT, E5, Simple
@@ -28,6 +29,8 @@ from src.utils.plotting import plot_samples
 from src.utils.lion import Lion
 
 from diffusers.optimization import get_cosine_schedule_with_warmup as scheduler
+
+
 
 def ddp_setup(local_rank, world_size):
     """
@@ -336,6 +339,8 @@ def load_train_objs(args):
         backbone = UViT        
     elif args.model == 'hybrid':
         backbone = UViTHybrid
+    elif args.model == 'hybridmoe':
+        backbone = UViTHybridMoE        
     else:
         print("ERROR: Model not found")
         sys.exit()
@@ -485,7 +490,7 @@ if __name__ == "__main__":
 
         run = wandb.init(
             # Set the project where this run will be logged
-            project="FLEX2",
+            project="FLEX4",
             name=args.run_name,
             mode = mode,
             # Track hyperparameters and run metadata            
@@ -503,7 +508,7 @@ if __name__ == "__main__":
         wandb.login()
         run = wandb.init(
             # Set the project where this run will be logged
-            project="FLEX",
+            project="FLEX4",
             name=args.run_name,
             mode = 'disabled',
             # Track hyperparameters and run metadata

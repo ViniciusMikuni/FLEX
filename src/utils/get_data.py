@@ -148,7 +148,7 @@ class DataLoader(torch.utils.data.Dataset, ABC):
         
         # direction = random.choice(['horizontal', 'vertical'])
         # lowres_patch, patch, future_patch = self.transform(lowres_patch, patch, future_patch,direction)
-                
+
         return lowres_patch, patch, future_patch, torch.tensor(Reynolds_number/40000.).unsqueeze(0)
 
 

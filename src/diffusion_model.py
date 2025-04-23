@@ -141,12 +141,12 @@ class DiffusionModel(nn.Module):
             w = torch.cat([w,w],0)
 
 
-            aux_loss_superres  = sum(self.superres_encoder.extra_losses) if self.superres_encoder.extra_losses else 0
-            aux_loss_forecast  = sum(self.forecast_encoder.extra_losses) if self.forecast_encoder.extra_losses else 0
-            aux_loss_general  = sum(self.encoder.extra_losses) if self.encoder.extra_losses else 0
+            #aux_loss_superres  = sum(self.superres_encoder.extra_losses) if self.superres_encoder.extra_losses else 0
+            #aux_loss_forecast  = sum(self.forecast_encoder.extra_losses) if self.forecast_encoder.extra_losses else 0
+            #aux_loss_general  = sum(self.encoder.extra_losses) if self.encoder.extra_losses else 0
 
 
-        return torch.mean(w*self.criterion(predicted, target)) + loss_clip + aux_loss_general + aux_loss_forecast + aux_loss_superres
+        return torch.mean(w*self.criterion(predicted, target)) + loss_clip #+ aux_loss_general + aux_loss_forecast + aux_loss_superres
 
 
     #@torch.compile

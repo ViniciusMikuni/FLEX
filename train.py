@@ -31,7 +31,6 @@ from src.utils.lion import Lion
 from diffusers.optimization import get_cosine_schedule_with_warmup as scheduler
 
 
-
 def ddp_setup(local_rank, world_size):
     """
     Args:

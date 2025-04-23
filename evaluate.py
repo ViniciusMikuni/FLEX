@@ -13,10 +13,10 @@ import torch
 
 import numpy as np
 
-from unet import UNet
-from uvit import UViT
-from uhybrid import UViTHybrid
-from diffusion_model import DiffusionModel
+from src.backbones.unet import UNet
+from src.backbones.uvit import UViT
+from src.backbones.uhybrid import UViTHybrid
+from src.diffusion_model import DiffusionModel
 
 from torch.utils.data import Dataset, DataLoader
 from torch_ema import ExponentialMovingAverage
@@ -29,7 +29,7 @@ import cmocean
 
 from PIL import Image
 from PIL import ImageDraw,ImageFont
-from get_data import E5_eval,NSKT_eval, Simple_eval
+from src.utils.get_data import E5_eval,NSKT_eval, Simple_eval
 
 
 def make_gif(PATH,args):

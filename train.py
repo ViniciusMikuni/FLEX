@@ -19,13 +19,13 @@ import torch.cuda.amp as amp
 
 from torch.optim import lr_scheduler
 
-from unet import UNet
-from uhybrid import UViTHybrid
-from uvit import UViT
-from diffusion_model import DiffusionModel
-from get_data import NSKT, E5, Simple
-from plotting import plot_samples
-from lion import Lion
+from src.backbones.unet import UNet
+from src.backbones.uhybrid import UViTHybrid
+from src.backbones.uvit import UViT
+from src.diffusion_model import DiffusionModel
+from src.utils.get_data import NSKT, E5, Simple
+from src.utils.plotting import plot_samples
+from src.utils.lion import Lion
 
 from diffusers.optimization import get_cosine_schedule_with_warmup as scheduler
 

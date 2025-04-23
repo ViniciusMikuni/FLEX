@@ -5,7 +5,7 @@ import torch.utils.checkpoint
 import numpy as np
 import math
 import sys
-from common import NoScaleDropout, Base2FourierFeatures, timestep_embedding, MPFourier
+from .common import NoScaleDropout, Base2FourierFeatures, timestep_embedding, MPFourier
 
 
 def patchify(imgs, patch_size):

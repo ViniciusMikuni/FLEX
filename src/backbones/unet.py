@@ -9,7 +9,7 @@ import numpy as np
 import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
-from common import NoScaleDropout, Base2FourierFeatures, timestep_embedding, MPFourier
+from .common import NoScaleDropout, Base2FourierFeatures, timestep_embedding, MPFourier
         
 def checkpoint(func, inputs, params, flag):
     """

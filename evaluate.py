@@ -21,7 +21,7 @@ from src.diffusion_model import DiffusionModel
 from torch.utils.data import Dataset, DataLoader
 from torch_ema import ExponentialMovingAverage
 from tqdm import tqdm
-from plotting import plot_samples
+from src.utils.plotting import plot_samples
 import h5py
 import scipy.stats
 import matplotlib.pyplot as plt

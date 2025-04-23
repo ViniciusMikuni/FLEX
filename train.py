@@ -503,7 +503,7 @@ if __name__ == "__main__":
         wandb.login()
         run = wandb.init(
             # Set the project where this run will be logged
-            project="DiffusionSR",
+            project="FLEX",
             name=args.run_name,
             mode = 'disabled',
             # Track hyperparameters and run metadata

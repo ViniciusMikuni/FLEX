@@ -20,7 +20,7 @@ class PatchDataset(torch.utils.data.Dataset, ABC):
     SAFE for num_workers > 0 (lazy HDF-5 handles).
     """
     def __init__(self, factor=8, num_pred_steps=1, patch_size=256, stride=64,
-                 train=True, oversampling=40, cond_snapshots=2):
+                 train=True, oversampling=1, cond_snapshots=2):
         self.factor          = factor
         self.num_pred_steps  = num_pred_steps
         self.train           = train
@@ -63,8 +63,10 @@ class PatchDataset(torch.utils.data.Dataset, ABC):
 
     # ------------------------------------------------------------------ #
     def __len__(self):
-        return ((self.data_shape[0] - self.num_pred_steps - self.cond_snapshots)
-                * self.oversampling + 1)
+        #return ((self.data_shape[0] - self.num_pred_steps - self.cond_snapshots)
+        #        * self.oversampling + 1)
+    
+        return 64
 
     def normalize(self, x):   return (x - self.mean) / self.std
     def undo_norm(self, x):   return x * self.std + self.mean

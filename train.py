@@ -4,8 +4,10 @@ Created on Fri Jul  23, 2024
 @author: ben
 """
 
-import os,sys, time
 import numpy as np
+
+
+import os,sys, time
 import wandb
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -395,7 +397,7 @@ def prepare_dataloader(dataset: Dataset, batch_size: int):
         sampler=DistributedSampler(dataset),
         #pin_memory=torch.cuda.is_available(),
         pin_memory=True,
-        persistent_workers=True,       # keeps the handles alive
+        #persistent_workers=True,       # keeps the handles alive
         num_workers=8,
     )
 
@@ -429,7 +431,8 @@ def main(rank: int, world_size: int, epochs: int, batch_size: int, run, args):
                       dataset=args.dataset,
                       use_amp = False,
                       #True if args.model == 'uvit' else False,
-                      undo_norm=undo_norm,sampling_freq = args.sampling_freq)
+                      undo_norm=undo_norm,
+                      sampling_freq = args.sampling_freq)
     trainer.train()
     destroy_process_group()
 
@@ -478,6 +481,10 @@ if __name__ == "__main__":
     
 
     args = parser.parse_args()
+
+    # start
+    np.random.seed(1)
+    print('start')
     
     if args.multi_node:
         def is_master_node():
@@ -529,3 +536,7 @@ if __name__ == "__main__":
         mp.spawn(main, args=(world_size, args.epochs, args.batch_size, run, args), nprocs=world_size)
         #main(0,1, args.epochs, args.batch_size, run, args)
 
+
+
+# export MKL_THREADING_LAYER=GNU   # before you run Python
+# export CUDA_VISIBLE_DEVICES=0,1,2,3; python train.py --run-name flex_v_small --dataset nskt --model flex --size small --data-dir /data/rdl/NSTK/

@@ -63,11 +63,9 @@ class PatchDataset(torch.utils.data.Dataset, ABC):
 
     # ------------------------------------------------------------------ #
     def __len__(self):
-        #return ((self.data_shape[0] - self.num_pred_steps - self.cond_snapshots)
-        #        * self.oversampling + 1)
+        return ((self.data_shape[0] - self.num_pred_steps - self.cond_snapshots)
+                * self.oversampling + 1)
     
-        return 64
-
     def normalize(self, x):   return (x - self.mean) / self.std
     def undo_norm(self, x):   return x * self.std + self.mean
 

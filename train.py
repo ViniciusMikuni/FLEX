@@ -539,4 +539,6 @@ if __name__ == "__main__":
 
 
 # export MKL_THREADING_LAYER=GNU   # before you run Python
+# export NCCL_ALGO=Ring           # or Tree
+# export NCCL_P2P_DISABLE=1       # disables NVLink/SHARP fallback paths
 # export CUDA_VISIBLE_DEVICES=0,1,2,3; python train.py --run-name flex_v_small --dataset nskt --model flex --size small --data-dir /data/rdl/NSTK/

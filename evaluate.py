@@ -27,7 +27,7 @@ import cmocean
 
 from PIL import Image
 from PIL import ImageDraw,ImageFont
-from src.utils.get_data import E5_eval, NSKT_eval, Simple_eval
+from src.utils.get_data import NSKT_eval # E5_eval, NSKT_eval, Simple_eval
 
 
 def make_gif(PATH,args):

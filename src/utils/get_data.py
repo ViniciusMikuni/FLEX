@@ -13,174 +13,122 @@ import random
 from torchvision import datasets, transforms
 from abc import ABC, abstractmethod
 
-class DataLoader(torch.utils.data.Dataset, ABC):
-    def __init__(self,
-                 factor = 8,
-                 num_pred_steps=1,
-                 patch_size=256,
-                 stride = 64,
-                 train=True,
-                 scratch_dir='./',
-                 oversampling = 40,
-                 cond_snapshots = 2,
-                 ):
 
+    
+class PatchDataset(torch.utils.data.Dataset, ABC):
+    """
+    SAFE for num_workers > 0 (lazy HDF-5 handles).
+    """
+    def __init__(self, factor=8, num_pred_steps=1, patch_size=256, stride=64,
+                 train=True, oversampling=40, cond_snapshots=2):
+        self.factor          = factor
+        self.num_pred_steps  = num_pred_steps
+        self.train           = train
+        self.oversampling    = oversampling
+        self.patch_size      = patch_size
+        self.stride          = stride
+        self.cond_snapshots  = cond_snapshots
 
-        self.factor = factor
-        self.num_pred_steps = num_pred_steps
-        self.train = train
-        self.oversampling = oversampling
-        self.patch_size = patch_size
-        self.stride = stride
-        self.cond_snapshots = cond_snapshots
-        self.datasets = self.open_hdf5()
+        # defer heavy work:
+        self.paths = self.build_file_list()
+        self.RN    = self.reynolds_numbers()
 
-        self.data_shape = self.datasets[0].shape
+        # discover data shape from a *temporary* handle
+        with h5py.File(self.paths[0], "r") as f:
+            self.data_shape = f["w"].shape
+
         self.max_row = (self.data_shape[-2] - self.patch_size) // self.stride + 1
         self.max_col = (self.data_shape[-1] - self.patch_size) // self.stride + 1
-        
-
         self.mean, self.std = self.get_norm()
-            
 
-    def __getitem__(self, index):
-        if not hasattr(self, 'dataset'):
-            self.open_hdf5()
-                        
-        # Select a time index 
-        index = index // self.oversampling + self.cond_snapshots - 1
-        
-        # Randomly select a patch from the image
-        patch_row = np.random.randint(0, self.max_row) * self.stride
-        patch_col = np.random.randint(0, self.max_col) * self.stride
-        
-        #Select one of the training files
-        random_dataset = np.random.randint(0, len(self.paths))
-        
-        Reynolds_number = self.RN[random_dataset]
-        dataset = self.datasets[random_dataset]
+        self._datasets = None          # will hold per-process handles
 
-        if len(self.data_shape) == 4: #Climate dataset has one additional dimension for task
-            patch = torch.from_numpy(dataset[index - self.cond_snapshots + 1:index + 1,2, patch_row:(patch_row + self.patch_size), patch_col:(patch_col + self.patch_size)]).float()
-            future_patch = torch.from_numpy(dataset[index + self.num_pred_steps,2, patch_row:(patch_row + self.patch_size), patch_col:(patch_col + self.patch_size)]).float().unsqueeze(0)
-        else:
-            patch = torch.from_numpy(dataset[index - self.cond_snapshots + 1:index + 1, patch_row:(patch_row + self.patch_size), patch_col:(patch_col + self.patch_size)]).float()
-            future_patch = torch.from_numpy(dataset[index + self.num_pred_steps, patch_row:(patch_row + self.patch_size), patch_col:(patch_col + self.patch_size)]).float().unsqueeze(0)
-            
+    # ------------------------------------------------------------------ #
+    # ---------- abstract helpers to be implemented by subclass --------- #
+    
+    @abstractmethod
+    def build_file_list(self): ...
 
-        patch = self.normalize(patch)
-        future_patch = self.normalize(future_patch)
+    @abstractmethod
+    def reynolds_numbers(self): ...
 
-        lowres_patch = patch[None,:, ::self.factor, ::self.factor]
-        lowres_patch =  F.interpolate(lowres_patch, 
-                                      size=[patch.shape[1], patch.shape[2]], 
-                                      mode='bicubic')[0,-1:]
+    @abstractmethod
+    def get_norm(self): ...
 
-        return lowres_patch, patch, future_patch, torch.tensor(Reynolds_number/40000.).unsqueeze(0)
+    # ---------- lazy opener ------------------------------------------- #
+    def _ensure_open(self):
+        if self._datasets is None:     # first touch *in this process*
+            self._datasets = [h5py.File(p, "r", libver="latest", swmr=True)["w"]
+                              for p in self.paths]
 
-
+    # ------------------------------------------------------------------ #
     def __len__(self):
-        #return 100
-        return (self.data_shape[0] - self.num_pred_steps - self.cond_snapshots)*self.oversampling + 1
+        return ((self.data_shape[0] - self.num_pred_steps - self.cond_snapshots)
+                * self.oversampling + 1)
 
-    def undo_norm(self,x):
-        return x*self.std + self.mean
+    def normalize(self, x):   return (x - self.mean) / self.std
+    def undo_norm(self, x):   return x * self.std + self.mean
 
-    def normalize(self,x):
-        return (x-self.mean)/self.std
+    # ------------------------------------------------------------------ #
+    def __getitem__(self, index):
+        self._ensure_open()
+        index = index // self.oversampling + self.cond_snapshots - 1
 
-    
-    @abstractmethod
-    def open_hdf5(self):
-        pass
+        row = np.random.randint(0, self.max_row) * self.stride
+        col = np.random.randint(0, self.max_col) * self.stride
+        ds_id = np.random.randint(0, len(self.paths))
 
-    @abstractmethod
-    def get_norm(self):
-        pass
+        RN       = self.RN[ds_id]
+        dataset  = self._datasets[ds_id]
 
-
-    
-class NSKT(DataLoader):
-    def __init__(self,
-                 factor,
-                 num_pred_steps=1,
-                 patch_size=256,
-                 stride = 2,
-                 train=True,
-                 scratch_dir='./',
-                 oversampling = 40,
-                 ):
-        if train:
-            seed = '2150'
+        if len(self.data_shape) == 4:
+            patch = dataset[index - self.cond_snapshots + 1 : index + 1,
+                            2, row:row+self.patch_size, col:col+self.patch_size]
+            future = dataset[index + self.num_pred_steps,
+                             2, row:row+self.patch_size, col:col+self.patch_size][None]
         else:
-            seed = '3407'            
-        self.paths = [os.path.join(scratch_dir,f'2000_2048_2048_seed_{seed}.h5'),
-                      os.path.join(scratch_dir,f'4000_2048_2048_seed_{seed}.h5'),
-                      os.path.join(scratch_dir,f'8000_2048_2048_seed_{seed}.h5'),
-                      os.path.join(scratch_dir,f'16000_2048_2048_seed_{seed}.h5'),
-                      os.path.join(scratch_dir,f'32000_2048_2048_seed_{seed}.h5'),
-                      ]
+            patch = dataset[index - self.cond_snapshots + 1 : index + 1,
+                            row:row+self.patch_size, col:col+self.patch_size]
+            future = dataset[index + self.num_pred_steps,
+                             row:row+self.patch_size, col:col+self.patch_size][None]
 
-        self.RN = [2000,4000,8000,16000,32000]
-        super().__init__(factor,num_pred_steps,patch_size,stride,train,scratch_dir,oversampling)
+        patch  = torch.from_numpy(patch).float()
+        future = torch.from_numpy(future).float()
+
+        patch  = self.normalize(patch)
+        future = self.normalize(future)
+
+        lowres = patch[None, :, ::self.factor, ::self.factor]
+        lowres = F.interpolate(lowres, size=patch.shape[1:], mode="bicubic")[0, -1:]
+
+        return (lowres,
+                patch,
+                future,
+                torch.tensor(RN / 40000.).unsqueeze(0))
+
+
         
-    def open_hdf5(self):
-        return [h5py.File(path, 'r')['w'] for path in self.paths]
+class NSKT(PatchDataset):
+    def __init__(self, factor, num_pred_steps=1, patch_size=256, stride=2,
+                 train=True, scratch_dir="./", oversampling=40):
+        self.scratch_dir = scratch_dir
+        self.seed = "2150" if train else "3407"
+        super().__init__(factor, num_pred_steps, patch_size, stride,
+                         train, oversampling)
+
+    def build_file_list(self):
+        seeds = [2000, 4000, 8000, 16000, 32000]
+        return [os.path.join(self.scratch_dir,
+                             f"{rn}_2048_2048_seed_{self.seed}.h5")
+                for rn in seeds]
+
+    def reynolds_numbers(self):
+        return [2000, 4000, 8000, 16000, 32000]
 
     def get_norm(self):
-        return  0.0, 5.4574137
-        
-    
-class E5(DataLoader):
-    def __init__(self,
-                 factor,
-                 num_pred_steps=1,
-                 patch_size=256,
-                 stride = 2,
-                 train=True,
-                 scratch_dir='./',
-                 oversampling = 40):
+        return 0.0, 5.4574137
 
 
-        if train:
-            self.paths = [os.path.join(scratch_dir,f'{year}.h5') for year in range(1979,2016)]
-            self.RN = np.zeros(len(self.paths))
-        else:
-            self.paths = [os.path.join(scratch_dir,'2016.h5'),os.path.join(scratch_dir,'2017.h5')]
-            self.RN = [0.0,0.0]
-
-
-        super().__init__(factor,num_pred_steps,patch_size,stride,train,scratch_dir,oversampling)
-    
-    def open_hdf5(self):
-        return [h5py.File(path, 'r')['fields'] for path in self.paths]
-
-    def get_norm(self):
-        return  278.06824, 21.676298
-
-
-class Simple(DataLoader):
-    def __init__(self,
-                 factor,
-                 num_pred_steps=1,
-                 patch_size=256,
-                 stride = 256,
-                 train=True,
-                 scratch_dir='./',
-                 oversampling = 1
-                 ):
-
-        if train:
-            self.paths = [os.path.join(scratch_dir,'ns_incomp_forced_res256_time10.steps500_visc0.07_reynolds100_wave2_maxvelo7.0_seed0.h5')]
-            self.RN = [100.0]
-        else:
-            self.paths = [os.path.join(scratch_dir,'ns_incomp_forced_res256_time10.steps500_visc0.07_reynolds100_wave2_maxvelo7.0_seed1.h5')]            
-            self.RN = [100.0]
-
-        super().__init__(factor,num_pred_steps,patch_size,stride,train,scratch_dir,oversampling)
-
-    def open_hdf5(self):
-        return [h5py.File(path, 'r')['tasks']['vorticity'] for path in self.paths]
 
 
 class EvalLoader(torch.utils.data.Dataset, ABC):
@@ -318,60 +266,3 @@ class NSKT_eval(EvalLoader):
     def get_norm(self):
         return  0.0, 5.4574137 
 
-
-class E5_eval(EvalLoader):
-    def __init__(self, factor, 
-                 patch_size=256, 
-                 stride = 256,
-                 step = 0,
-                 horizon = 30,
-                 Reynolds_number = 1,
-                 scratch_dir='./',
-                 superres = False,
-                 shift_factor = 1,
-                 skip_factor = 1,
-                 cond_snapshots = 2,
-                 ):
-
-        self.files_dict = {
-            0:os.path.join(scratch_dir,'2016.h5'),
-        }
-
-        super().__init__(factor,step,patch_size,stride,horizon,
-                         Reynolds_number,scratch_dir,superres,
-                         shift_factor,skip_factor,cond_snapshots)
-    
-    def open_hdf5(self):
-        return h5py.File(self.file, 'r')['fields'][:,2]
-
-    def get_norm(self):
-        return  278.06824, 21.676298
-
-
-class Simple_eval(EvalLoader):
-    def __init__(self, factor, 
-                 patch_size=256, 
-                 stride = 256,
-                 step = 0,
-                 horizon = 30,
-                 Reynolds_number = 1,
-                 scratch_dir='./',
-                 superres = False,
-                 shift_factor = 600,
-                 skip_factor = 5,
-                 cond_snapshots = 2,
-                 ):
-
-        self.files_dict = {
-            300:'ns_incom_inhom_2d_512-3_vorticity.h5',
-        }
-
-        super().__init__(factor,step,patch_size,stride,horizon,
-                         Reynolds_number,scratch_dir,superres,
-                         shift_factor,skip_factor,cond_snapshots)
-            
-    def open_hdf5(self):
-        return h5py.File(self.file, 'r')['w']
-
-    def get_norm(self):
-        return  0.0, 0.01

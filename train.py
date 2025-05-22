@@ -24,7 +24,7 @@ from src.backbones.flex import FLEX
 #from src.backbones.uhybrid_moe import UViTHybridMoE
 from src.backbones.uvit import UViT
 from src.diffusion_model import DiffusionModel
-from src.utils.get_data import NSKT, E5, Simple
+from src.utils.get_data import NSKT #,E5, Simple
 from src.utils.plotting import plot_samples
 from src.utils.lion import Lion
 
@@ -384,14 +384,16 @@ def load_train_objs(args):
 
 
 def prepare_dataloader(dataset: Dataset, batch_size: int):
+    
     return DataLoader(
         dataset,
         batch_size=batch_size,
-        pin_memory=torch.cuda.is_available(),
         shuffle=False,
         sampler=DistributedSampler(dataset),
-        #persistent_workers = True,
-        num_workers=8
+        #pin_memory=torch.cuda.is_available(),
+        pin_memory=True,
+        persistent_workers=True,       # keeps the handles alive
+        num_workers=8,
     )
 
 

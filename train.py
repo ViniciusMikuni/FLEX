@@ -15,7 +15,7 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed import init_process_group, destroy_process_group, barrier, get_rank, is_initialized, all_reduce, get_world_size
 from torch_ema import ExponentialMovingAverage
-import torch.cuda.amp as amp
+#import torch.cuda.amp as amp
 
 from torch.optim import lr_scheduler
 
@@ -108,7 +108,7 @@ class Trainer:
         self.checkpoint_path = os.path.join(self.checkpoint_dir,f"checkpoint_{self.dataset}_{self.run_name}.pt")
         self.use_amp = use_amp
         if self.use_amp:
-            self.gscaler = amp.GradScaler()
+            self.gscaler = torch.GradScaler("cuda")
         
         self.lr_scheduler = scheduler(
             optimizer=self.optimizer,
@@ -137,8 +137,11 @@ class Trainer:
             data_start = time.time()
             self.optimizer.zero_grad(set_to_none=True)
             
-            with amp.autocast(self.use_amp):
-                loss = self.model(*data)
+            if self.use_amp:
+                with torch.autocast("cuda"):
+                    loss = self.model(*data)
+            else:
+                    loss = self.model(*data)
 
 
             if self.use_amp:

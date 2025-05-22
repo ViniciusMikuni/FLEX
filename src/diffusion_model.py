@@ -141,12 +141,12 @@ class DiffusionModel(nn.Module):
             w = torch.cat([w,w],0)
 
 
-            #aux_loss_superres  = sum(self.superres_encoder.extra_losses) if self.superres_encoder.extra_losses else 0
-            #aux_loss_forecast  = sum(self.forecast_encoder.extra_losses) if self.forecast_encoder.extra_losses else 0
-            #aux_loss_general  = sum(self.encoder.extra_losses) if self.encoder.extra_losses else 0
+            aux_loss_superres  = sum(self.superres_encoder.extra_losses) if self.superres_encoder.extra_losses else 0
+            aux_loss_forecast  = sum(self.forecast_encoder.extra_losses) if self.forecast_encoder.extra_losses else 0
+            aux_loss_general  = sum(self.encoder.extra_losses) if self.encoder.extra_losses else 0
 
 
-        return torch.mean(w*self.criterion(predicted, target)) + loss_clip #+ aux_loss_general + aux_loss_forecast + aux_loss_superres
+        return torch.mean(w*self.criterion(predicted, target)) + loss_clip + aux_loss_general + aux_loss_forecast + aux_loss_superres
 
 
     #@torch.compile
@@ -154,10 +154,7 @@ class DiffusionModel(nn.Module):
                conditioning_snapshots: torch.Tensor,
                fluid_condition: torch.Tensor,
                device='cuda',superres = False, snapshots_i = None,) -> torch.Tensor:
-        """
-        Let's sample
-        See Alg 2 in https://arxiv.org/pdf/2006.11239
-        """
+        
         if snapshots_i is None:
            snapshots_i = torch.randn(n_sample, *size).to(device)  # x_T ~ N(0, 1)
 
@@ -167,12 +164,15 @@ class DiffusionModel(nn.Module):
         else:            
             model_head = self.forecast_encoder
 
+        
+
         for time_step in range(self.n_T, 0, -1):
             time = torch.ones((n_sample,) ).to(device) * time_step / self.n_T
             time_ = torch.ones((n_sample,) ).to(device) * (time_step-1) / self.n_T
             logsnr, alpha, sigma = get_logsnr_alpha_sigma(time,shift=self.logsnr_shift)
             logsnr_, alpha_, sigma_ = get_logsnr_alpha_sigma(time_,shift=self.logsnr_shift)
-
+            
+            
             pred_head, skip_head = model_head(conditional,fluid_condition = fluid_condition)
             
             pred, skip = self.encoder(snapshots_i,time.to(device),
@@ -184,7 +184,6 @@ class DiffusionModel(nn.Module):
                                 time.to(device),
                                 fluid_condition = fluid_condition)
 
-
             
             if self.prediction_type == 'v':                    
                 mean = alpha * snapshots_i - sigma * pred
@@ -193,6 +192,7 @@ class DiffusionModel(nn.Module):
             elif self.prediction_type == 'x':
                 mean = pred
                 eps = (alpha * pred - snapshots_i) / sigma
+                
             elif self.prediction_type == 'eps':
                 mean = alpha * snapshots_i - sigma * pred
                 eps = pred * alpha + snapshots_i * sigma

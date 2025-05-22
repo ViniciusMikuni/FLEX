@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Created on Fri Jul  5 15:11:28 2024
 
@@ -14,67 +12,6 @@ import torch.nn.functional as F
 import random
 from torchvision import datasets, transforms
 from abc import ABC, abstractmethod
-
-class AddNoise:
-    def __init__(self, p=0.1, add_noise_level=0.2, mult_noise_level=0.1):
-        self.p = p
-        self.add_noise_level = add_noise_level
-        self.mult_noise_level = mult_noise_level
-
-    def _noise(self, x):
-        add_noise = 0.0
-        mult_noise = 1.0
-        if self.add_noise_level > 0.0:
-            add_noise = self.add_noise_level * np.random.beta(2, 5) * torch.randn_like(x).to(x.device)
-        if self.mult_noise_level > 0.0:
-            mult_noise = self.mult_noise_level * np.random.beta(2, 5) * (2 * torch.rand_like(x).to(x.device) - 1) + 1
-        return mult_noise * x + add_noise
-
-    def __call__(self, x):
-        if torch.rand(1).item() < self.p:
-            x = self._noise(x)
-        return x
-
-    def __repr__(self):
-        return f"{self.__class__.__name__}(p={self.p}, add_noise_level={self.add_noise_level}, mult_noise_level={self.mult_noise_level})"
-
-
-
-class FlipAugmentation:
-    def __init__(self, p=0.5):
-        self.p = p
-
-    def __call__(self, im1, im2, im3, direction=None):
-        """
-        Perform random flipping on three input tensors.
-
-        Args:
-            im1, im2, im3 (torch.Tensor): Tensors of shape (1, H, W) to be flipped.
-            direction (str, optional): Direction of the flip ('horizontal' or 'vertical'). If None, it is chosen randomly.
-
-        Returns:
-            tuple: Three tensors of shape (1, H, W), possibly flipped.
-        """
-        assert im1.shape[0] == 1 and im2.shape[0] == 1 and im3.shape[0] == 1, \
-            "All inputs must have shape (1, H, W)."
-        assert im1.ndim == 3 and im2.ndim == 3 and im3.ndim == 3, \
-            "All inputs must be 3-dimensional tensors."
-
-        if random.random() < self.p:
-            if direction == 'horizontal':
-                im1 = torch.flip(im1, dims=[2])  # Flip along width (W)
-                im2 = torch.flip(im2, dims=[2])
-                im3 = torch.flip(im3, dims=[2])
-            elif direction == 'vertical':
-                im1 = torch.flip(im1, dims=[1])  # Flip along height (H)
-                im2 = torch.flip(im2, dims=[1])
-                im3 = torch.flip(im3, dims=[1])
-            else:
-                raise ValueError("Direction must be 'horizontal', 'vertical', or None.")
-
-        return im1, im2, im3    
-
-
 
 class DataLoader(torch.utils.data.Dataset, ABC):
     def __init__(self,
@@ -104,10 +41,6 @@ class DataLoader(torch.utils.data.Dataset, ABC):
         
 
         self.mean, self.std = self.get_norm()
-        if self.train:
-            self.transform = AddNoise(0.1)
-        else:
-            self.transform = AddNoise(0.0)
             
 
     def __getitem__(self, index):
@@ -143,18 +76,12 @@ class DataLoader(torch.utils.data.Dataset, ABC):
                                       size=[patch.shape[1], patch.shape[2]], 
                                       mode='bicubic')[0,-1:]
 
-        # lowres_patch = self.transform(lowres_patch)
-        # future_patch = self.transform(future_patch)
-        
-        # direction = random.choice(['horizontal', 'vertical'])
-        # lowres_patch, patch, future_patch = self.transform(lowres_patch, patch, future_patch,direction)
-
         return lowres_patch, patch, future_patch, torch.tensor(Reynolds_number/40000.).unsqueeze(0)
 
 
     def __len__(self):
         #return 100
-        return (self.data_shape[0] - self.num_pred_steps - self.cond_snapshots)*self.oversampling +1
+        return (self.data_shape[0] - self.num_pred_steps - self.cond_snapshots)*self.oversampling + 1
 
     def undo_norm(self,x):
         return x*self.std + self.mean
@@ -243,7 +170,6 @@ class Simple(DataLoader):
                  oversampling = 1
                  ):
 
-
         if train:
             self.paths = [os.path.join(scratch_dir,'ns_incomp_forced_res256_time10.steps500_visc0.07_reynolds100_wave2_maxvelo7.0_seed0.h5')]
             self.RN = [100.0]
@@ -295,10 +221,6 @@ class EvalLoader(torch.utils.data.Dataset, ABC):
 
         self.num_patches_per_image = ((self.data_shape[1] - self.patch_size) // self.stride + 1) * \
                                      ((self.data_shape[2] - self.patch_size) // self.stride + 1)
-        
-    def __len__(self):
-        return  self.num_patches_per_image  * 70 #30000 #self.length
-        
     
     @abstractmethod
     def open_hdf5(self):
@@ -435,14 +357,13 @@ class Simple_eval(EvalLoader):
                  Reynolds_number = 1,
                  scratch_dir='./',
                  superres = False,
-                 shift_factor = 0,
-                 skip_factor = 1,
+                 shift_factor = 600,
+                 skip_factor = 5,
                  cond_snapshots = 2,
                  ):
 
         self.files_dict = {
-            100:os.path.join(scratch_dir,'ns_incomp_forced_res256_time10.steps500_visc0.07_reynolds100_wave2_maxvelo7.0_seed2.h5'),
-            1000:os.path.join(scratch_dir,'ns_incomp_forced_res256_time10.steps500_visc0.007_reynolds1000_wave6_maxvelo7.0_seed0.h5'),
+            300:'ns_incom_inhom_2d_512-3_vorticity.h5',
         }
 
         super().__init__(factor,step,patch_size,stride,horizon,
@@ -450,4 +371,7 @@ class Simple_eval(EvalLoader):
                          shift_factor,skip_factor,cond_snapshots)
             
     def open_hdf5(self):
-        return h5py.File(self.file, 'r')['tasks']['vorticity']
+        return h5py.File(self.file, 'r')['w']
+
+    def get_norm(self):
+        return  0.0, 0.01

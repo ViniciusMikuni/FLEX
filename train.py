@@ -20,8 +20,8 @@ import torch.cuda.amp as amp
 from torch.optim import lr_scheduler
 
 from src.backbones.unet import UNet
-from src.backbones.uhybrid import UViTHybrid
-from src.backbones.uhybrid_moe import UViTHybridMoE
+from src.backbones.flex import FLEX
+#from src.backbones.uhybrid_moe import UViTHybridMoE
 from src.backbones.uvit import UViT
 from src.diffusion_model import DiffusionModel
 from src.utils.get_data import NSKT, E5, Simple
@@ -308,38 +308,36 @@ class Trainer:
 
 
 
-                
-                
-                
+                  
 def load_train_objs(args):
     if args.dataset == 'climate':
         train_set = E5(factor=args.superres_factor, num_pred_steps=args.forecast_steps,
-                     scratch_dir='/pscratch/sd/v/vmikuni/FM/climate/train')
+                     scratch_dir=args.data_path)
         val_set = E5(factor=args.superres_factor, num_pred_steps=args.forecast_steps,train=False,
-                     scratch_dir='/pscratch/sd/v/vmikuni/FM/climate/valid')
+                     scratch_dir=args.data_path)
 
     elif args.dataset == 'simple':
         train_set = Simple(factor=args.superres_factor, num_pred_steps=args.forecast_steps,
-                           scratch_dir='/pscratch/sd/v/vmikuni/FM/simple')
+                           scratch_dir=args.data_path)
         val_set = Simple(factor=args.superres_factor, num_pred_steps=args.forecast_steps,train=False,
-                         scratch_dir='/pscratch/sd/v/vmikuni/FM/simple')
+                         scratch_dir=args.data_path)
 
         
-    else:
+    elif args.dataset == 'nskt':
         train_set = NSKT(factor=args.superres_factor, num_pred_steps=args.forecast_steps,
-                         scratch_dir=args.scratch_dir)
+                         scratch_dir=args.data_path)
         val_set = NSKT(factor=args.superres_factor, num_pred_steps=args.forecast_steps,train=False,
-                       scratch_dir=args.scratch_dir)
+                       scratch_dir=args.data_path)
 
     
     if args.model == 'unet':
         backbone = UNet
     elif args.model == 'uvit':
         backbone = UViT        
-    elif args.model == 'hybrid':
-        backbone = UViTHybrid
-    elif args.model == 'hybridmoe':
-        backbone = UViTHybridMoE        
+    elif args.model == 'flex':
+        backbone = FLEX
+    #elif args.model == 'hybridmoe':
+    #    backbone = UViTHybridMoE        
     else:
         print("ERROR: Model not found")
         sys.exit()
@@ -393,7 +391,7 @@ def prepare_dataloader(dataset: Dataset, batch_size: int):
         shuffle=False,
         sampler=DistributedSampler(dataset),
         #persistent_workers = True,
-        num_workers=16
+        num_workers=0
     )
 
 
@@ -439,9 +437,10 @@ if __name__ == "__main__":
     parser.add_argument("--dataset", type=str, default='nskt', help="Name of the dataset to train. Options are [nskt,climate,simple]")
     parser.add_argument("--model", type=str, default='uvit', help="Model used as the backbone")
     parser.add_argument("--size", type=str, default='medium', help="Model size. Options are [small, medium, big]")
+    parser.add_argument("--data-path", type=str, default='data/', help="path to data folder")
 
     #General parameters
-    parser.add_argument("--scratch-dir", type=str, default='/pscratch/sd/v/vmikuni/FM/nskt_tensor/', help="Name of the current run.")
+    parser.add_argument("--scratch-dir", type=str, default='checkpoints/', help="Name of the current run.")
     parser.add_argument('--epochs', default=200, type=int, help='Total epochs to train the model')
     parser.add_argument('--sampling-freq', default=5, type=int, help='How often to save a snapshot')
     parser.add_argument('--batch-size', default=8, type=int, help='Input batch size on each device (default: 8)')
@@ -507,9 +506,9 @@ if __name__ == "__main__":
         wandb.login()
         run = wandb.init(
             # Set the project where this run will be logged
-            project="FLEX4",
+            project="FLEX5",
             name=args.run_name,
-            mode = 'disabled',
+            #mode = 'disabled',
             # Track hyperparameters and run metadata
             config={
                 "learning_rate": args.learning_rate,

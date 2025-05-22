@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Created on Sat Jul 27 13:10:38 2024
 
@@ -15,7 +13,7 @@ import numpy as np
 
 from src.backbones.unet import UNet
 from src.backbones.uvit import UViT
-from src.backbones.uhybrid import UViTHybrid
+from src.backbones.flex import FLEX
 from src.diffusion_model import DiffusionModel
 
 from torch.utils.data import Dataset, DataLoader
@@ -29,7 +27,7 @@ import cmocean
 
 from PIL import Image
 from PIL import ImageDraw,ImageFont
-from src.utils.get_data import E5_eval,NSKT_eval, Simple_eval
+from src.utils.get_data import E5_eval, NSKT_eval, Simple_eval
 
 
 def make_gif(PATH,args):
@@ -161,17 +159,17 @@ def generate_samples(model,ema,dataset,undo_norm,args):
                             fig = plt.figure(figsize=(12, 8))
                             plt.imshow(img[0,0,:,:], cmap=cmocean.cm.balance)
                             plt.tight_layout()
-                            plt.savefig(PATH + "/ddpm_forecast_pred_"+ str(im) + ".png")
+                            plt.savefig(PATH + "/forecast_pred_"+ str(im) + ".png")
                             plt.close()
                             fig = plt.figure(figsize=(12, 8))
                             plt.imshow(targets[im].cpu().detach().numpy()[0,0], cmap=cmocean.cm.balance)
                             plt.tight_layout()
-                            plt.savefig(PATH + "/ddpm_forecast_target_"+ str(im) + ".png")
+                            plt.savefig(PATH + "/forecast_target_"+ str(im) + ".png")
                             plt.close()
                             fig = plt.figure(figsize=(12, 8))
                             plt.imshow(stds[im][0,0], cmap=cmocean.cm.balance)
                             plt.tight_layout()
-                            plt.savefig(PATH + "/ddpm_forecast_error_"+ str(im) + ".png")
+                            plt.savefig(PATH + "/forecast_error_"+ str(im) + ".png")
                             plt.close()
                                                 
                 i+=1
@@ -196,7 +194,7 @@ def main(args):
                           step = args.step,
                           Reynolds_number = args.Reynolds_number,
                           horizon=args.horizon,
-                          scratch_dir="/pscratch/sd/v/vmikuni/FM/climate/valid/",
+                          scratch_dir=args.data_path,
                           superres=args.superres,
                           cond_snapshots = 1 if args.superres else args.cond_snapshots)
 
@@ -205,7 +203,7 @@ def main(args):
                               step = args.step,
                               Reynolds_number = args.Reynolds_number,
                               horizon=args.horizon,
-                              scratch_dir="/pscratch/sd/v/vmikuni/FM/simple",
+                              scratch_dir=args.data_path,
                               superres=args.superres,
                               cond_snapshots = 1 if args.superres else args.cond_snapshots)
 
@@ -215,7 +213,7 @@ def main(args):
                             step = args.step,
                             Reynolds_number = args.Reynolds_number,
                             horizon=args.horizon,
-                            scratch_dir=args.scratch_dir,
+                            scratch_dir=args.data_path,
                             superres=args.superres,
                             cond_snapshots = 1 if args.superres else args.cond_snapshots)
 
@@ -225,8 +223,8 @@ def main(args):
         backbone = UNet
     elif args.model == 'uvit':
         backbone = UViT        
-    elif args.model == 'hybrid':
-        backbone = UViTHybrid
+    elif args.model == 'flex':
+        backbone = FLEX
     else:
         print("ERROR: Model not found")
         sys.exit()
@@ -287,8 +285,10 @@ if __name__ == "__main__":
     parser.add_argument("--dataset", type=str, default='nskt', help="Name of the dataset for evaluation.")
     parser.add_argument("--model", type=str, default='hybrid', help="Model used as the backbone")
     parser.add_argument("--size", type=str, default='medium', help="Model size. Options are [small, medium, big]")
-    parser.add_argument("--scratch-dir", type=str, default='/pscratch/sd/v/vmikuni/FM/nskt_tensor/', help="Name of the current run.")
+    parser.add_argument("--scratch-dir", type=str, default='checkpoints/', help="Name of the current run.")
     parser.add_argument('--superres', action='store_true', default=False, help='Superresolution')
+    parser.add_argument("--data-path", type=str, default='data/', help="path to data folder")
+
 
     parser.add_argument('--logsnr_shift', default=1., type=float, help='Shift logsnr value')
     parser.add_argument('--Reynolds-number', default=0, type=int, help='Reynolds number')

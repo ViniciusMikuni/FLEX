@@ -772,7 +772,7 @@ class Decoder(nn.Module):
 
     
 
-def UViTHybrid(image_size=256,
+def FLEX(image_size=256,
                in_channels=1,
                out_channels=1,
                model_size = 'small',

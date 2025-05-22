@@ -1,3 +1,5 @@
+.. -*- mode: rst -*-
+
 .. image:: images/logo.png
     :width: 500px
 

@@ -1,3 +1,6 @@
+.. image:: images/logo.png
+    :width: 500px
+
 # Self-contained multiple expert models
 
 ## Training a new model for both superresolution and forecasting tasks

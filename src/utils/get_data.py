@@ -20,7 +20,7 @@ class PatchDataset(torch.utils.data.Dataset, ABC):
     SAFE for num_workers > 0 (lazy HDF-5 handles).
     """
     def __init__(self, factor=8, num_pred_steps=1, patch_size=256, stride=64,
-                 train=True, oversampling=1, cond_snapshots=2):
+                 train=True, oversampling=40, cond_snapshots=2):
         self.factor          = factor
         self.num_pred_steps  = num_pred_steps
         self.train           = train

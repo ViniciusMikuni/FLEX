@@ -194,7 +194,7 @@ def main(args):
                           step = args.step,
                           Reynolds_number = args.Reynolds_number,
                           horizon=args.horizon,
-                          scratch_dir=args.data_path,
+                          scratch_dir=args.data_dir,
                           superres=args.superres,
                           cond_snapshots = 1 if args.superres else args.cond_snapshots)
 
@@ -203,7 +203,7 @@ def main(args):
                               step = args.step,
                               Reynolds_number = args.Reynolds_number,
                               horizon=args.horizon,
-                              scratch_dir=args.data_path,
+                              scratch_dir=args.data_dir,
                               superres=args.superres,
                               cond_snapshots = 1 if args.superres else args.cond_snapshots)
 
@@ -213,7 +213,7 @@ def main(args):
                             step = args.step,
                             Reynolds_number = args.Reynolds_number,
                             horizon=args.horizon,
-                            scratch_dir=args.data_path,
+                            scratch_dir=args.data_dir,
                             superres=args.superres,
                             cond_snapshots = 1 if args.superres else args.cond_snapshots)
 
@@ -287,7 +287,7 @@ if __name__ == "__main__":
     parser.add_argument("--size", type=str, default='medium', help="Model size. Options are [small, medium, big]")
     parser.add_argument("--scratch-dir", type=str, default='checkpoints/', help="Name of the current run.")
     parser.add_argument('--superres', action='store_true', default=False, help='Superresolution')
-    parser.add_argument("--data-path", type=str, default='data/', help="path to data folder")
+    parser.add_argument("--data-dir", type=str, default='data/', help="path to data folder")
 
 
     parser.add_argument('--logsnr_shift', default=1., type=float, help='Shift logsnr value')

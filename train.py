@@ -312,22 +312,22 @@ class Trainer:
 def load_train_objs(args):
     if args.dataset == 'climate':
         train_set = E5(factor=args.superres_factor, num_pred_steps=args.forecast_steps,
-                     scratch_dir=args.data_path)
+                     scratch_dir=args.data_dir)
         val_set = E5(factor=args.superres_factor, num_pred_steps=args.forecast_steps,train=False,
-                     scratch_dir=args.data_path)
+                     scratch_dir=args.data_dir)
 
     elif args.dataset == 'simple':
         train_set = Simple(factor=args.superres_factor, num_pred_steps=args.forecast_steps,
-                           scratch_dir=args.data_path)
+                           scratch_dir=args.data_dir)
         val_set = Simple(factor=args.superres_factor, num_pred_steps=args.forecast_steps,train=False,
-                         scratch_dir=args.data_path)
+                         scratch_dir=args.data_dir)
 
         
     elif args.dataset == 'nskt':
         train_set = NSKT(factor=args.superres_factor, num_pred_steps=args.forecast_steps,
-                         scratch_dir=args.data_path)
+                         scratch_dir=args.data_dir)
         val_set = NSKT(factor=args.superres_factor, num_pred_steps=args.forecast_steps,train=False,
-                       scratch_dir=args.data_path)
+                       scratch_dir=args.data_dir)
 
     
     if args.model == 'unet':
@@ -391,7 +391,7 @@ def prepare_dataloader(dataset: Dataset, batch_size: int):
         shuffle=False,
         sampler=DistributedSampler(dataset),
         #persistent_workers = True,
-        num_workers=0
+        num_workers=8
     )
 
 
@@ -437,7 +437,7 @@ if __name__ == "__main__":
     parser.add_argument("--dataset", type=str, default='nskt', help="Name of the dataset to train. Options are [nskt,climate,simple]")
     parser.add_argument("--model", type=str, default='uvit', help="Model used as the backbone")
     parser.add_argument("--size", type=str, default='medium', help="Model size. Options are [small, medium, big]")
-    parser.add_argument("--data-path", type=str, default='data/', help="path to data folder")
+    parser.add_argument("--data-dir", type=str, default='data/', help="path to data folder")
 
     #General parameters
     parser.add_argument("--scratch-dir", type=str, default='checkpoints/', help="Name of the current run.")

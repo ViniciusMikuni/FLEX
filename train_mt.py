@@ -25,7 +25,7 @@ from src.backbones.unet import UNet
 from src.backbones.flex import FLEX
 #from src.backbones.uhybrid_moe import UViTHybridMoE
 from src.backbones.uvit import UViT
-from src.diffusion_model import DiffusionModel
+from src.diffusion_model_mt import DiffusionModel
 from src.utils.get_data import NSKT #,E5, Simple
 from src.utils.plotting import plot_samples
 from src.utils.lion import Lion

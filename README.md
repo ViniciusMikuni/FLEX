@@ -40,10 +40,16 @@ Training Instructions
 To train a new multi-task model for both super-resolution and forecasting:
 
 
-    python train.py --run-name flex_v_small --dataset nskt --model flex --size small --data-dir PATH/TO/DATASET
+    python train_mt.py --run-name flex_small --dataset nskt --model flex --size small --data-dir PATH/TO/DATASET
 
 
-Additional options are available for model sizes (small/medium/big), model types (unet,uvit,flex, flex_sr, flex_fc).
+Additional options are available for model sizes (small/medium/big), model types (unet, uvit, flex).
+
+To train a new single-task model for both super-resolution, use:
+
+
+    python train_sr.py --run-name flex_sr_small --dataset nskt --model flex --size small --data-dir PATH/TO/DATASET
+
 
 You can download data here: [ToDo].
 

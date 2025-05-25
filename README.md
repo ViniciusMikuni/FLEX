@@ -40,7 +40,7 @@ Training Instructions
 To train a new multi-task model for both super-resolution and forecasting:
 
 
-    python train.py --run-name flex_v_small --dataset nskt --model flex --size small [--multi-node] --data-dir PATH/TO/DATASET
+    python train.py --run-name flex_v_small --dataset nskt --model flex --size small --data-dir PATH/TO/DATASET
 
 
 Additional options are available for model sizes (small/medium/big), model types (unet,uvit,flex, flex_sr, flex_fc).
@@ -56,16 +56,14 @@ Forecasting
 -----------
 
 
-    python evaluate.py --run-name flex_v_small  --Reynolds-number 12000 --batch-size 32  --horizon 10  --diffusion-steps 2 --model flex  --ensemb-size 1 --size small
+    python evaluate.py --model-path checkpoints/checkpoint_name.pt  --Reynolds-number 12000 --batch-size 32 --horizion 10 --diffusion-steps 2 --model flex --ensemb-size 1 --size small --data-dir PATH/TO/DATASET
 
 
 Superresolution
 ---------------
 
 
-    python evaluate.py --run-name flex_v_small  --Reynolds-number 12000 --batch-size 32  --diffusion-steps 2 --model flex  --ensemb-size 1 --size small --superres
-
-
+    python evaluate.py --model-path checkpoints/checkpoint_name.pt  --Reynolds-number 16000 --batch-size 32 --diffusion-steps 2 --model flex --ensemb-size 1 --size small --superres --data-dir PATH/TO/DATASET
 
 
 ---------------------------

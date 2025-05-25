@@ -189,26 +189,7 @@ def generate_samples(model,ema,dataset,undo_norm,args):
     
     
 def main(args):
-    if args.dataset == 'climate':
-        dataset = E5_eval(factor=args.factor,
-                          step = args.step,
-                          Reynolds_number = args.Reynolds_number,
-                          horizon=args.horizon,
-                          scratch_dir=args.data_dir,
-                          superres=args.superres,
-                          cond_snapshots = 1 if args.superres else args.cond_snapshots)
-
-    elif args.dataset == 'simple':
-        dataset = Simple_eval(factor=args.factor,
-                              step = args.step,
-                              Reynolds_number = args.Reynolds_number,
-                              horizon=args.horizon,
-                              scratch_dir=args.data_dir,
-                              superres=args.superres,
-                              cond_snapshots = 1 if args.superres else args.cond_snapshots)
-
-
-    else:
+    if args.dataset == 'nskt':
         dataset = NSKT_eval(factor=args.factor,
                             step = args.step,
                             Reynolds_number = args.Reynolds_number,
@@ -250,11 +231,13 @@ def main(args):
         batch_size=args.batch_size,
         pin_memory=True,
         shuffle=False,
-        num_workers=16
+        num_workers=8
     )
 
     print(f"Evaluating model {args.run_name}")
-    PATH = os.path.join(args.scratch_dir,'checkpoints',f"checkpoint_{args.dataset}_{args.run_name}.pt")
+    #PATH = os.path.join(args.scratch_dir,'checkpoints',f"checkpoint_{args.dataset}_{args.run_name}.pt")
+    PATH = args.model_path
+
 
     checkpoint = torch.load(PATH)
     #optimizer.load_state_dict(checkpoint["optimizer"])
@@ -283,11 +266,11 @@ if __name__ == "__main__":
     parser.add_argument('--horizon', default=30, type=int, help='Input batch size on each device (default: 32)')
     parser.add_argument("--run-name", type=str, default='run1', help="Name of the current run.")
     parser.add_argument("--dataset", type=str, default='nskt', help="Name of the dataset for evaluation.")
-    parser.add_argument("--model", type=str, default='hybrid', help="Model used as the backbone")
-    parser.add_argument("--size", type=str, default='medium', help="Model size. Options are [small, medium, big]")
-    parser.add_argument("--scratch-dir", type=str, default='checkpoints/', help="Name of the current run.")
+    parser.add_argument("--model", type=str, default='flex', help="Model used as the backbone")
+    parser.add_argument("--size", type=str, default='small', help="Model size. Options are [small, medium, big]")
     parser.add_argument('--superres', action='store_true', default=False, help='Superresolution')
     parser.add_argument("--data-dir", type=str, default='data/', help="path to data folder")
+    parser.add_argument("--model-path", type=str, default='checkpoint_nskt_flex_v_small.pt', help="name of checkpoint file")
 
 
     parser.add_argument('--logsnr_shift', default=1., type=float, help='Shift logsnr value')

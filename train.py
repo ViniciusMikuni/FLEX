@@ -315,20 +315,7 @@ class Trainer:
 
                   
 def load_train_objs(args):
-    if args.dataset == 'climate':
-        train_set = E5(factor=args.superres_factor, num_pred_steps=args.forecast_steps,
-                     scratch_dir=args.data_dir)
-        val_set = E5(factor=args.superres_factor, num_pred_steps=args.forecast_steps,train=False,
-                     scratch_dir=args.data_dir)
-
-    elif args.dataset == 'simple':
-        train_set = Simple(factor=args.superres_factor, num_pred_steps=args.forecast_steps,
-                           scratch_dir=args.data_dir)
-        val_set = Simple(factor=args.superres_factor, num_pred_steps=args.forecast_steps,train=False,
-                         scratch_dir=args.data_dir)
-
-        
-    elif args.dataset == 'nskt':
+    if  args.dataset == 'nskt':
         train_set = NSKT(factor=args.superres_factor, num_pred_steps=args.forecast_steps,
                          scratch_dir=args.data_dir)
         val_set = NSKT(factor=args.superres_factor, num_pred_steps=args.forecast_steps,train=False,
@@ -341,8 +328,7 @@ def load_train_objs(args):
         backbone = UViT        
     elif args.model == 'flex':
         backbone = FLEX
-    #elif args.model == 'hybridmoe':
-    #    backbone = UViTHybridMoE        
+     
     else:
         print("ERROR: Model not found")
         sys.exit()
@@ -448,7 +434,7 @@ if __name__ == "__main__":
     parser.add_argument("--data-dir", type=str, default='data/', help="path to data folder")
 
     #General parameters
-    parser.add_argument("--scratch-dir", type=str, default='checkpoints/', help="Name of the current run.")
+    parser.add_argument("--scratch-dir", type=str, default='/', help="Name of the current run.")
     parser.add_argument('--epochs', default=200, type=int, help='Total epochs to train the model')
     parser.add_argument('--sampling-freq', default=5, type=int, help='How often to save a snapshot')
     parser.add_argument('--batch-size', default=8, type=int, help='Input batch size on each device (default: 8)')
@@ -542,3 +528,5 @@ if __name__ == "__main__":
 # export NCCL_ALGO=Ring           # or Tree
 # export NCCL_P2P_DISABLE=1       # disables NVLink/SHARP fallback paths
 # export CUDA_VISIBLE_DEVICES=0,1,2,3; python train.py --run-name flex_v_small --dataset nskt --model flex --size small --data-dir /data/rdl/NSTK/
+
+

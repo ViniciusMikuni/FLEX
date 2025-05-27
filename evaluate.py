@@ -27,8 +27,7 @@ import cmocean
 
 from PIL import Image
 from PIL import ImageDraw,ImageFont
-from src.utils.get_data import NSKT_eval # E5_eval, NSKT_eval, Simple_eval
-
+from src.utils.get_data import NSKT_eval
 
 def make_gif(PATH,args):
     targets = []
@@ -261,6 +260,10 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Minimalistic Diffusion Model for Super-resolution')
+    
+    parser.add_argument("--mode", type=str, default='superres', help="superres, forecast, multitask")
+
+    
     parser.add_argument('--batch-size', default=32, type=int, help='Input batch size on each device (default: 32)')
     parser.add_argument('--ensemb-size', default=1, type=int, help='Number of ensembles per prediction')
     parser.add_argument('--horizon', default=30, type=int, help='Input batch size on each device (default: 32)')

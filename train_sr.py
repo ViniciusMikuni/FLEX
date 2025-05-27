@@ -428,7 +428,7 @@ if __name__ == "__main__":
     parser.add_argument("--data-dir", type=str, default='data/', help="path to data folder")
 
     #General parameters
-    parser.add_argument("--scratch-dir", type=str, default='/', help="Name of the current run.")
+    parser.add_argument("--scratch-dir", type=str, default='./', help="Name of the current run.")
     parser.add_argument('--epochs', default=200, type=int, help='Total epochs to train the model')
     parser.add_argument('--sampling-freq', default=5, type=int, help='How often to save a snapshot')
     parser.add_argument('--batch-size', default=16, type=int, help='Input batch size on each device (default: 8)')

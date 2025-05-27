@@ -20,14 +20,13 @@ class PatchDataset(torch.utils.data.Dataset, ABC):
     SAFE for num_workers > 0 (lazy HDF-5 handles).
     """
     def __init__(self, factor=8, num_pred_steps=1, patch_size=256, stride=64,
-                 train=True, oversampling=40, cond_snapshots=2):
+                 train=True, oversampling=40):
         self.factor          = factor
         self.num_pred_steps  = num_pred_steps
         self.train           = train
         self.oversampling    = oversampling
         self.patch_size      = patch_size
         self.stride          = stride
-        self.cond_snapshots  = cond_snapshots
 
         # defer heavy work:
         self.paths = self.build_file_list()
@@ -63,8 +62,7 @@ class PatchDataset(torch.utils.data.Dataset, ABC):
 
     # ------------------------------------------------------------------ #
     def __len__(self):
-        return ((self.data_shape[0] - self.num_pred_steps - self.cond_snapshots)
-                * self.oversampling + 1)
+        return self.data_shape[0] * self.oversampling
     
     def normalize(self, x):   return (x - self.mean) / self.std
     def undo_norm(self, x):   return x * self.std + self.mean
@@ -72,7 +70,7 @@ class PatchDataset(torch.utils.data.Dataset, ABC):
     # ------------------------------------------------------------------ #
     def __getitem__(self, index):
         self._ensure_open()
-        index = index // self.oversampling + self.cond_snapshots - 1
+        index = index // self.oversampling
 
         row = np.random.randint(0, self.max_row) * self.stride
         col = np.random.randint(0, self.max_col) * self.stride
@@ -82,11 +80,9 @@ class PatchDataset(torch.utils.data.Dataset, ABC):
         dataset  = self._datasets[ds_id]
 
         if len(self.data_shape) == 4:
-            patch = dataset[index - self.cond_snapshots + 1 : index + 1,
-                            2, row:row+self.patch_size, col:col+self.patch_size]
+            patch = dataset[index : index + 1, 2, row:row+self.patch_size, col:col+self.patch_size]
         else:
-            patch = dataset[index - self.cond_snapshots + 1 : index + 1,
-                            row:row+self.patch_size, col:col+self.patch_size]
+            patch = dataset[index : index + 1, row:row+self.patch_size, col:col+self.patch_size]
 
         patch  = torch.from_numpy(patch).float()
 
@@ -134,7 +130,7 @@ class EvalLoader(torch.utils.data.Dataset, ABC):
                  Reynolds_number = 16000,
                  scratch_dir='./',
                  superres = False,
-                 shift_factor = 1, #Skip initial snapshot for forecasting
+                 shift_factor = 0, #Skip initial snapshot for forecasting
                  skip_factor = 8,  #Avoid overlaping
                  cond_snapshots = 2,
                  ):
@@ -219,7 +215,7 @@ class NSKT_eval(EvalLoader):
                  Reynolds_number = 16000,
                  scratch_dir='./',
                  superres = False,
-                 shift_factor = 600,
+                 shift_factor = 0,
                  skip_factor = 8,
                  cond_snapshots = 2,
                  ):

@@ -11,7 +11,7 @@ This project implements **FLEX (FLow EXpert)**, a backbone architecture for diff
 
 The following figure illustrates the overall architecture of FLEX, instantiated for super-resolution tasks. FLEX is modular and can be extended to forecasting and multi-task settings seamlessly. Here, FLEX operates in the residual space, rather than directly modeling raw data, which stabilizes training by reducing the variance of the diffusion velocity field.
 
-.. image:: images/flex_sr.png
+.. image:: images/logo.png
     :width: 800px
 
 See our paper on arXiv (https://arxiv.org/abs/2505.17351) for full details.

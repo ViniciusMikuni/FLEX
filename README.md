@@ -14,7 +14,7 @@ The following figure illustrates the overall architecture of FLEX, instantiated 
 .. image:: images/flex_sr.png
     :width: 800px
 
-See our paper on [arXiv](https://arxiv.org/abs/xxxx.xxxxx) for full details.
+See our paper on [arXiv](https://arxiv.org/abs/2505.17351) for full details.
 
 ---------------------------
 Architectural Highlights
